@@ -6,8 +6,18 @@ authors = ["Dag Brattli <dag@brattli.net>", "Cristina Ferrer Teixidor <cris.ferr
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 rich = "^13.7.0"
+
+[tool.poetry.group.dev.dependencies]
+dunamai = "^1.19.0"
+pre-commit = "^3.6.0"
+pytest = "^7.4.4"
+
+[tool.pyright]
+reportMissingImports = false
+typeCheckingMode = "strict"
+include = ["traceme", "tests"]
 
 [tool.ruff]
 line-length = 120
@@ -17,7 +27,7 @@ line-length = 120
 ignore = ["D100", "D101", "D102", "D103", "D105", "D107"]
 target-version = "py310"
 select = ["D", "E", "W",  "F", "I", "T", "RUF", "TID", "UP"]
-exclude = ["tests", "docs"]
+exclude = ["docs"]
 
 [tool.ruff.pydocstyle]
 convention = "google"
