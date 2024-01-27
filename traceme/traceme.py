@@ -87,11 +87,6 @@ def trace(exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
     ...
 
 
-@overload
-def trace(func: str, *args: Any, **kwargs: Any) -> str:
-    ...
-
-
 def trace(
     *args: Any,
     **kwargs: Any,
@@ -109,8 +104,11 @@ def trace(
     match func_or_string:
         case None:
             return decorator
-        case str():
-            TraceMe.trace(*args, **kwargs)
-            return func_or_string
         case _:
             return decorator(func_or_string)
+
+
+def log(*args: Any, **kwargs: Any) -> None:
+    """Print the arguments with indentation."""
+    # TODO: print variable_name = value for each arg
+    TraceMe.trace(*args, **kwargs)
