@@ -5,7 +5,7 @@ import threading
 from collections.abc import Callable
 from datetime import datetime
 from types import TracebackType
-from typing import Any, ParamSpec, TypeVar, TypeVarTuple, overload
+from typing import Any, ParamSpec, TypeVar, overload
 
 # from rich import print
 from rich.console import Console

@@ -6,8 +6,11 @@ authors = ["Dag Brattli <dag@brattli.net>", "Cristina Ferrer Teixidor <cris.ferr
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 rich = "^13.7.0"
+
+[tool.poetry.group.dev.dependencies]
+dunamai = "^1.19.0"
 
 [tool.ruff]
 line-length = 120
