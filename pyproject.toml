@@ -12,6 +12,11 @@ rich = "^13.7.0"
 [tool.poetry.group.dev.dependencies]
 dunamai = "^1.19.0"
 
+[tool.pyright]
+reportMissingImports = false
+typeCheckingMode = "strict"
+include = ["traceme"]
+
 [tool.ruff]
 line-length = 120
 # D100: Missing docstring in public module
