@@ -14,7 +14,7 @@ from rich.console import Console
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
-console = Console(width=200, color_system="auto", force_terminal=True)
+console = Console(width=200, color_system="auto", force_terminal=True, log_path=False)
 
 
 class _Indentation(threading.local):
@@ -28,7 +28,7 @@ bar: str = "[grey23]│[/grey23]"
 func_color: str = "deep_sky_blue4"
 
 
-class TraceMe:
+class TraceContext:
     def __init__(self, name: str, *args: Any, exit: bool = False, timeit: bool = False, **kwargs: Any):
         self.name = name
         self.args = args
@@ -52,7 +52,7 @@ class TraceMe:
         """Print the arguments with indentation."""
         self.start = datetime.now()
         indentation = self.indent()
-        console.log(indentation + f"{bar}> [{func_color}]{self.name}[/]", *self.args, **self.kwargs)
+        console.log(f"{indentation}{bar}> [{func_color}]{self.name}[/]", *self.args, **self.kwargs)
         _indentation.indentation += 4
 
     def __exit__(
@@ -64,9 +64,9 @@ class TraceMe:
 
         match self.exit, excinst:
             case True, None:
-                console.log(f"{indentation}< [{func_color}]{self.name}[/]")
+                console.log(f"{indentation}{bar}< [{func_color}]{self.name}[/]")
             case True, exn:
-                console.log(f"{indentation}< [{func_color}]{self.name}[/] [red]{exn!r}[/]")
+                console.log(f"{indentation}{bar}< [{func_color}]{self.name}[/] [red]{exn!r}[/]")
             case _:
                 pass
 
@@ -96,7 +96,7 @@ def trace(
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            with TraceMe(func.__name__, *args, exit=exit, **kwargs):
+            with TraceContext(func.__name__, *args, exit=exit, **kwargs):
                 return func(*args, **kwargs)
 
         return wrapper
@@ -111,4 +111,4 @@ def trace(
 def log(*args: Any, **kwargs: Any) -> None:
     """Print the arguments with indentation."""
     # TODO: print variable_name = value for each arg
-    TraceMe.trace(*args, **kwargs)
+    TraceContext.trace(*args, **kwargs)
