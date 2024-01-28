@@ -1,6 +1,6 @@
 """Traceme package."""
 from ._version import __version__
-from .traceme import TraceMe, log, trace
+from .traceme import TraceContext, log, trace
 
 
-__all__ = ["TraceMe", "trace", "log", "__version__"]
+__all__ = ["TraceContext", "trace", "log", "__version__"]
