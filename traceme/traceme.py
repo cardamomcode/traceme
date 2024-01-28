@@ -14,7 +14,7 @@ from rich.console import Console
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
-console = Console(width=200, color_system="auto", force_terminal=True)
+console = Console(width=200, color_system="auto", force_terminal=True, log_path=False)
 
 
 class _Indentation(threading.local):
