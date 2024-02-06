@@ -7,14 +7,15 @@ from datetime import datetime
 from types import TracebackType
 from typing import Any, ParamSpec, TypeVar, overload
 
-# from rich import print
-from rich.console import Console
+import structlog
+from structlog.typing import EventDict, WrappedLogger
 
 
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
-console = Console(width=200, color_system="auto", force_terminal=True, log_path=False)
+# console = Console(width=200, color_system="auto", force_terminal=True, log_path=False)
+logger = structlog.get_logger()
 
 
 class _Indentation(threading.local):
@@ -22,10 +23,6 @@ class _Indentation(threading.local):
 
 
 _indentation = _Indentation()
-
-# Store the code for a full width vertical line. Codes at https://rich.readthedocs.io/en/stable/appendix/colors.html
-bar: str = "[grey23]│[/grey23]"
-func_color: str = "deep_sky_blue4"
 
 
 class TraceContext:
@@ -35,24 +32,11 @@ class TraceContext:
         self.kwargs = kwargs
         self.exit = exit
         self.start: datetime | None = None
-        # inspect arguments similar to icecream
-        # frame = inspect.currentframe().f_back
-        # line = inspect.getframeinfo(frame).code_context[0]
-        # variable_name = line[line.index("(") + 1 : line.index(")")].strip()
-        # debug("*** variable_name", variable_name)
-
-    @staticmethod
-    def indent() -> str:
-        num_bars = _indentation.indentation // 4
-        remaining_spaces = _indentation.indentation % 4
-        indentation = f"{bar}   " * num_bars + " " * remaining_spaces
-        return indentation
 
     def __enter__(self) -> None:
-        """Print the arguments with indentation."""
+        """Log the arguments and indentation."""
         self.start = datetime.now()
-        indentation = self.indent()
-        console.log(f"{indentation}{bar}> [{func_color}]{self.name}[/]", *self.args, **self.kwargs)
+        logger.info(self.name, args=self.args, kwargs=self.kwargs, indentation=_indentation.indentation, direction=">")
         _indentation.indentation += 4
 
     def __exit__(
@@ -60,21 +44,22 @@ class TraceContext:
     ) -> None:
         """Exit and reset indentation."""
         _indentation.indentation -= 4
-        indentation = self.indent()
+        elapsed = datetime.now() - self.start if self.start else None
 
         match self.exit, excinst:
             case True, None:
-                console.log(f"{indentation}{bar}< [{func_color}]{self.name}[/]")
+                logger.info(self.name, indentation=_indentation.indentation, direction="<", elapsed=elapsed)
             case True, exn:
-                console.log(f"{indentation}{bar}< [{func_color}]{self.name}[/] [red]{exn!r}[/]")
+                logger.error(
+                    self.name, exc_info=exn, indentation=_indentation.indentation, direction="<", elapsed=elapsed
+                )
             case _:
                 pass
 
     @classmethod
-    def trace(cls, *args: Any, **kwargs: Any) -> None:
+    def trace(cls, msg: str, *args: Any, **kwargs: Any) -> None:
         """Print the arguments with indentation."""
-        indentation = cls.indent()
-        console.log(indentation, *args, **kwargs)
+        logger.info(msg, args=args, kwargs=kwargs, indentation=_indentation.indentation)
 
 
 @overload
@@ -108,7 +93,49 @@ def trace(
             return decorator(func_or_string)
 
 
-def log(*args: Any, **kwargs: Any) -> None:
+def log(msg: str, *args: Any, **kwargs: Any) -> None:
     """Print the arguments with indentation."""
     # TODO: print variable_name = value for each arg
-    TraceContext.trace(*args, **kwargs)
+    TraceContext.trace(msg, *args, **kwargs)
+
+
+def stringify(arg: Any) -> str:
+    match arg:
+        case None:
+            return "None"
+        case True:
+            return "True"
+        case False:
+            return "False"
+        case fn if callable(fn):
+            # reduce length of function name with ... in the start if longer than 20 characters
+            return f"{fn.__name__[:20] + '...' if len(fn.__name__) > 20 else fn.__name__}()"
+        case _:
+            return str(arg)
+
+
+# make a structlog processor that uses the TraceContext
+# https://www.structlog.org/en/stable/processors.html
+def structlog_processor(logger: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:
+    """A structlog processor that uses the TraceContext."""
+    # print(f"logger: {logger}, method_name: {method_name}, event_dict: {event_dict}")
+    # indent event in each event_dict
+    indent = event_dict.get("indentation", 0)
+    num_bars = indent // 4
+    remaining_spaces = indent % 4
+    indentation = "│   " * num_bars + " " * remaining_spaces
+    event = event_dict.get("event", "")
+    direction = event_dict.get("direction", "")
+    elapsed = event_dict.get("elapsed", "")
+    args = ", ".join(stringify(arg) for arg in event_dict.get("args", []))
+
+    event_dict["event"] = f"{indentation} {direction} {event}({args}) elapsed={elapsed}"
+    del event_dict["indentation"]
+    if "direction" in event_dict:
+        del event_dict["direction"]
+    if "elapsed" in event_dict:
+        del event_dict["elapsed"]
+    return event_dict
+
+
+structlog.configure(processors=[structlog_processor, structlog.dev.ConsoleRenderer()])

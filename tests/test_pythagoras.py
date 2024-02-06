@@ -18,6 +18,7 @@ def square(a: int, cont: Callable[[int], None]) -> None:
 
 @trace(exit=True)
 def sqrt(a: int, cont: Callable[[int], None]) -> None:
+    # raise Exception("Not implemented")
     cont(int(math.sqrt(a)))
 
 
