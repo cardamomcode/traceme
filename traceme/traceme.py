@@ -7,6 +7,7 @@ from datetime import datetime
 from types import TracebackType
 from typing import Any, ParamSpec, TypeVar, overload
 
+import colorama
 import structlog
 from structlog.typing import EventDict, WrappedLogger
 
@@ -100,6 +101,7 @@ def log(msg: str, *args: Any, **kwargs: Any) -> None:
 
 
 def stringify(arg: Any) -> str:
+    max_length = 30
     match arg:
         case None:
             return "None"
@@ -107,9 +109,12 @@ def stringify(arg: Any) -> str:
             return "True"
         case False:
             return "False"
+        case str(arg):
+            return arg
         case fn if callable(fn):
+            name = fn.__name__.split(" at ")[0]
             # reduce length of function name with ... in the start if longer than 20 characters
-            return f"{fn.__name__[:20] + '...' if len(fn.__name__) > 20 else fn.__name__}()"
+            return f"...{fn.__name__[:max_length] if len(name) > max_length else name}()"
         case _:
             return str(arg)
 
@@ -129,8 +134,8 @@ def structlog_processor(logger: WrappedLogger, method_name: str, event_dict: Eve
     elapsed = event_dict.get("elapsed", "")
     args = ", ".join(stringify(arg) for arg in event_dict.get("args", []))
 
-    event_dict["event"] = f"{indentation} {direction} {event}({args}) elapsed={elapsed}"
-    del event_dict["indentation"]
+    event_dict["event"] = f"│{direction} {event}({args}) elapsed={elapsed}"
+    # del event_dict["indentation"]
     if "direction" in event_dict:
         del event_dict["direction"]
     if "elapsed" in event_dict:
@@ -138,4 +143,49 @@ def structlog_processor(logger: WrappedLogger, method_name: str, event_dict: Eve
     return event_dict
 
 
-structlog.configure(processors=[structlog_processor, structlog.dev.ConsoleRenderer()])
+class IndentationFormatter:
+    def __call__(self, key: str, value: Any) -> str:
+        return f"{'│   ' * (value // 4)}{' ' * (value % 4)}"
+
+
+columns = [
+    structlog.dev.Column(
+        "timestamp",
+        structlog.dev.KeyValueColumnFormatter(
+            key_style=None,
+            value_style=colorama.Fore.YELLOW,
+            reset_style=colorama.Style.RESET_ALL,
+            value_repr=str,
+        ),
+    ),
+    structlog.dev.Column(
+        "indentation",
+        formatter=IndentationFormatter(),
+    ),
+    structlog.dev.Column(
+        "event",
+        structlog.dev.KeyValueColumnFormatter(
+            key_style=None,
+            value_style=colorama.Style.BRIGHT + colorama.Fore.MAGENTA,
+            reset_style=colorama.Style.RESET_ALL,
+            value_repr=str,
+        ),
+    ),
+    structlog.dev.Column(
+        "",
+        structlog.dev.KeyValueColumnFormatter(
+            key_style=colorama.Fore.CYAN,
+            value_style=colorama.Fore.GREEN,
+            reset_style=colorama.Style.RESET_ALL,
+            value_repr=str,
+        ),
+    ),
+]
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.add_log_level,
+        structlog_processor,
+        structlog.dev.ConsoleRenderer(columns=columns),
+    ]
+)
