@@ -37,7 +37,7 @@ class TraceContext:
     def __enter__(self) -> None:
         """Log the arguments and indentation."""
         self.start = datetime.now()
-        logger.info(self.name, args=self.args, kwargs=self.kwargs, indentation=_indentation.indentation, direction=">")
+        logger.info(self.name, args=self.args, kwargs=self.kwargs, direction=">")
         _indentation.indentation += 4
 
     def __exit__(
@@ -49,18 +49,16 @@ class TraceContext:
 
         match self.exit, excinst:
             case True, None:
-                logger.info(self.name, indentation=_indentation.indentation, direction="<", elapsed=elapsed)
+                logger.info(self.name, direction="<", elapsed=elapsed)
             case True, exn:
-                logger.error(
-                    self.name, exc_info=exn, indentation=_indentation.indentation, direction="<", elapsed=elapsed
-                )
+                logger.error(self.name, exc_info=exn, direction="<", elapsed=elapsed)
             case _:
                 pass
 
     @classmethod
     def trace(cls, msg: str, *args: Any, **kwargs: Any) -> None:
         """Print the arguments with indentation."""
-        logger.info(msg, args=args, kwargs=kwargs, indentation=_indentation.indentation)
+        logger.info(msg, args=args, kwargs=kwargs)
 
 
 @overload
@@ -121,31 +119,28 @@ def stringify(arg: Any) -> str:
 
 # make a structlog processor that uses the TraceContext
 # https://www.structlog.org/en/stable/processors.html
-def structlog_processor(logger: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:
+def traceme_processor(logger: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:
     """A structlog processor that uses the TraceContext."""
     # print(f"logger: {logger}, method_name: {method_name}, event_dict: {event_dict}")
     # indent event in each event_dict
-    indent = event_dict.get("indentation", 0)
-    num_bars = indent // 4
-    remaining_spaces = indent % 4
-    indentation = "│   " * num_bars + " " * remaining_spaces
     event = event_dict.get("event", "")
     direction = event_dict.get("direction", "")
-    elapsed = event_dict.get("elapsed", "")
     args = ", ".join(stringify(arg) for arg in event_dict.get("args", []))
 
-    event_dict["event"] = f"│{direction} {event}({args}) elapsed={elapsed}"
+    event_dict["indentation"] = _indentation.indentation
+    event_dict["event"] = f"{direction} {event}({args})"
     # del event_dict["indentation"]
     if "direction" in event_dict:
         del event_dict["direction"]
-    if "elapsed" in event_dict:
-        del event_dict["elapsed"]
     return event_dict
 
 
 class IndentationFormatter:
+    def __init__(self, style: str = "") -> None:
+        self.color = style or colorama.Fore.LIGHTBLACK_EX
+
     def __call__(self, key: str, value: Any) -> str:
-        return f"{'│   ' * (value // 4)}{' ' * (value % 4)}"
+        return f"{self.color}{'│   ' * (value // 4)}│"
 
 
 columns = [
@@ -159,8 +154,22 @@ columns = [
         ),
     ),
     structlog.dev.Column(
+        "level",
+        structlog.dev.LogLevelColumnFormatter(
+            level_styles={
+                "critical": colorama.Style.BRIGHT + colorama.Fore.RED,
+                "error": colorama.Fore.RED,
+                "exception": colorama.Fore.RED,
+                "warning": colorama.Fore.YELLOW,
+                "info": colorama.Fore.GREEN,
+                "debug": colorama.Fore.BLUE,
+            },
+            reset_style=colorama.Style.RESET_ALL,
+        ),
+    ),
+    structlog.dev.Column(
         "indentation",
-        formatter=IndentationFormatter(),
+        formatter=IndentationFormatter(style=colorama.Fore.LIGHTBLACK_EX),
     ),
     structlog.dev.Column(
         "event",
@@ -185,7 +194,8 @@ structlog.configure(
     processors=[
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.add_log_level,
-        structlog_processor,
+        traceme_processor,
         structlog.dev.ConsoleRenderer(columns=columns),
+        # structlog.processors.JSONRenderer(),
     ]
 )
