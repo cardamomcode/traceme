@@ -210,10 +210,16 @@ class ElapsedFormatter:
     def __call__(self, key: str, value: object) -> str:
         match value:
             case timedelta() if value.total_seconds() < 0.001:
-                return f"{self.key_style}elapsed={self.value_style}{value.total_seconds() * 1_000_000:.0f}{self.reset_style} us"
+                return (
+                    f"{self.key_style}elapsed="
+                    f"{self.value_style}{value.total_seconds() * 1_000_000:.0f} us"
+                    f"{self.reset_style}"
+                )
             case timedelta() if value.total_seconds() < 1:
                 return (
-                    f"{self.key_style}elapsed={self.value_style}{value.total_seconds() * 1000:.2f}{self.reset_style} ms"
+                    f"{self.key_style}elapsed="
+                    f"{self.value_style}{value.total_seconds() * 1000:.2f} ms"
+                    f"{self.reset_style}"
                 )
             case timedelta():
                 return f"{self.key_style}elapsed={self.value_style}{value}{self.reset_style} secs"
