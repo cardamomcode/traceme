@@ -3,25 +3,31 @@
 import math
 from collections.abc import Callable
 
-from traceme import log, trace
+import structlog
+
+import traceme
 
 
-@trace(exit=True)
+logger = structlog.get_logger(__name__)
+
+
+@traceme.debug
 def add(a: int, b: int, cont: Callable[[int], None]) -> None:
     cont(a + b)
 
 
-@trace(exit=True)
+@traceme.info(exit=True)
 def square(a: int, cont: Callable[[int], None]) -> None:
     cont(a * a)
 
 
-@trace(exit=True)
+@traceme.info(exit=True)
 def sqrt(a: int, cont: Callable[[int], None]) -> None:
+    # raise Exception("Not implemented")
     cont(int(math.sqrt(a)))
 
 
-@trace(exit=True)
+@traceme.info(exit=True)
 def pythagoras(a: int, b: int, cont: Callable[[int], None]) -> None:
     square(
         a,
@@ -40,4 +46,5 @@ def pythagoras(a: int, b: int, cont: Callable[[int], None]) -> None:
 
 
 if __name__ == "__main__":
-    pythagoras(3, 4, lambda result: log("The result is", result))
+    traceme.configure()
+    pythagoras(3, 4, lambda result: logger.debug("The result is", result=result))
