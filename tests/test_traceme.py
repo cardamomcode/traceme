@@ -16,7 +16,7 @@ def test_trace_decorator_works():
 
 
 def test_trace_decorator_parametrized_works():
-    @traceme.info(exit=True)
+    @traceme.info(log_exit=True)
     def add(a: int, b: int) -> int:
         return a + b
 
