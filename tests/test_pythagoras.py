@@ -16,18 +16,18 @@ def add(a: int, b: int, cont: Callable[[int], None]) -> None:
     cont(a + b)
 
 
-@traceme.info(exit=True)
+@traceme.info(log_exit=True)
 def square(a: int, cont: Callable[[int], None]) -> None:
     cont(a * a)
 
 
-@traceme.info(exit=True)
+@traceme.info(log_exit=True)
 def sqrt(a: int, cont: Callable[[int], None]) -> None:
     # raise Exception("Not implemented")
     cont(int(math.sqrt(a)))
 
 
-@traceme.info(exit=True)
+@traceme.info(log_exit=True)
 def pythagoras(a: int, b: int, cont: Callable[[int], None]) -> None:
     square(
         a,

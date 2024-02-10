@@ -36,14 +36,14 @@ class TraceContext:
         name: str,
         *args: Any,
         log_level: int = logging.INFO,
-        exit: bool = False,
+        log_exit: bool = False,
         timeit: bool = False,
         **kwargs: Any,
     ):
         self.name = name
         self.args = args
         self.kwargs = kwargs
-        self.exit = exit
+        self.log_exit = log_exit
         self.start: datetime | None = None
         self.log_level = log_level
 
@@ -67,7 +67,7 @@ class TraceContext:
         _indentation.indentation -= 4
         elapsed = datetime.now() - self.start if self.start else None
 
-        match self.exit, excinst:
+        match self.log_exit, excinst:
             case True, None:
                 logger.log(event=self.name, level=self.log_level, direction=Direction.EXIT, elapsed=elapsed)
             case True, exn:
@@ -84,11 +84,17 @@ def _trace(log_level: int = logging.INFO) -> Callable[..., Any]:
         **kwargs: Any,
     ) -> Any:
         func_or_string = args[0] if args else None
-        exit = kwargs.pop("exit", False)
+        log_exit = kwargs.pop("log_exit", False)
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            # if func is an init method, use the class name instead of the method name
+            if func.__name__ == "__init__":
+                name = func.__qualname__.split(".")[0]
+            else:
+                name = func.__name__
+
             def wrapper(*args: Any, **kwargs: Any) -> Any:
-                with TraceContext(func.__name__, *args, exit=exit, log_level=log_level, **kwargs):
+                with TraceContext(name, *args, log_exit=log_exit, log_level=log_level, **kwargs):
                     return func(*args, **kwargs)
 
             return wrapper
@@ -108,7 +114,7 @@ def info(func: Callable[_P, _T]) -> Callable[_P, _T]:
 
 
 @overload
-def info(exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+def info(log_exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
     ...
 
 
@@ -125,7 +131,7 @@ def debug(func: Callable[_P, _T]) -> Callable[_P, _T]:
 
 
 @overload
-def debug(exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+def debug(log_exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
     ...
 
 
@@ -142,7 +148,7 @@ def error(func: Callable[_P, _T]) -> Callable[_P, _T]:
 
 
 @overload
-def error(exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+def error(log_exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
     ...
 
 
