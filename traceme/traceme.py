@@ -1,22 +1,26 @@
-# make a debug enter and exit context manager that prints the arguments similar to icecream
-
-# import inspect
+import logging
 import threading
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
+from enum import IntEnum
 from types import TracebackType
 from typing import Any, ParamSpec, TypeVar, overload
 
 import colorama
 import structlog
+from structlog.processors import CallsiteParameter
 from structlog.typing import EventDict, WrappedLogger
 
 
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
-# console = Console(width=200, color_system="auto", force_terminal=True, log_path=False)
 logger = structlog.get_logger()
+
+
+class Direction(IntEnum):
+    ENTER = 0
+    EXIT = 1
 
 
 class _Indentation(threading.local):
@@ -27,17 +31,33 @@ _indentation = _Indentation()
 
 
 class TraceContext:
-    def __init__(self, name: str, *args: Any, exit: bool = False, timeit: bool = False, **kwargs: Any):
+    def __init__(
+        self,
+        name: str,
+        *args: Any,
+        log_level: int = logging.INFO,
+        exit: bool = False,
+        timeit: bool = False,
+        **kwargs: Any,
+    ):
         self.name = name
         self.args = args
         self.kwargs = kwargs
         self.exit = exit
         self.start: datetime | None = None
+        self.log_level = log_level
 
     def __enter__(self) -> None:
         """Log the arguments and indentation."""
         self.start = datetime.now()
-        logger.info(self.name, args=self.args, kwargs=self.kwargs, direction=">")
+        logger.log(
+            event=self.name,
+            level=self.log_level,
+            args=self.args,
+            kwargs=self.kwargs,
+            direction=Direction.ENTER,
+            elapsed=None,
+        )
         _indentation.indentation += 4
 
     def __exit__(
@@ -49,53 +69,88 @@ class TraceContext:
 
         match self.exit, excinst:
             case True, None:
-                logger.info(self.name, direction="<", elapsed=elapsed)
+                logger.log(event=self.name, level=self.log_level, direction=Direction.EXIT, elapsed=elapsed)
             case True, exn:
-                logger.error(self.name, exc_info=exn, direction="<", elapsed=elapsed)
+                logger.log(
+                    event=self.name, level=self.log_level, exc_info=exn, direction=Direction.EXIT, elapsed=elapsed
+                )
             case _:
                 pass
 
-    @classmethod
-    def trace(cls, msg: str, *args: Any, **kwargs: Any) -> None:
-        """Print the arguments with indentation."""
-        logger.info(msg, args=args, kwargs=kwargs)
+
+def _trace(log_level: int = logging.INFO) -> Callable[..., Any]:
+    def _trace(
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        func_or_string = args[0] if args else None
+        exit = kwargs.pop("exit", False)
+
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                with TraceContext(func.__name__, *args, exit=exit, log_level=log_level, **kwargs):
+                    return func(*args, **kwargs)
+
+            return wrapper
+
+        match func_or_string:
+            case None:
+                return decorator
+            case _:
+                return decorator(func_or_string)
+
+    return _trace
 
 
 @overload
-def trace(func: Callable[_P, _T]) -> Callable[_P, _T]:
+def info(func: Callable[_P, _T]) -> Callable[_P, _T]:
     ...
 
 
 @overload
-def trace(exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+def info(exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
     ...
 
 
-def trace(
+def info(
     *args: Any,
     **kwargs: Any,
 ) -> Any:
-    func_or_string = args[0] if args else None
-    exit = kwargs.pop("exit", False)
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            with TraceContext(func.__name__, *args, exit=exit, **kwargs):
-                return func(*args, **kwargs)
-
-        return wrapper
-
-    match func_or_string:
-        case None:
-            return decorator
-        case _:
-            return decorator(func_or_string)
+    return _trace(log_level=logging.INFO)(*args, **kwargs)
 
 
-def log(msg: str, *args: Any, **kwargs: Any) -> None:
-    """Print the arguments with indentation."""
-    # TODO: print variable_name = value for each arg
-    TraceContext.trace(msg, *args, **kwargs)
+@overload
+def debug(func: Callable[_P, _T]) -> Callable[_P, _T]:
+    ...
+
+
+@overload
+def debug(exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+    ...
+
+
+def debug(
+    *args: Any,
+    **kwargs: Any,
+) -> Any:
+    return _trace(log_level=logging.DEBUG)(*args, **kwargs)
+
+
+@overload
+def error(func: Callable[_P, _T]) -> Callable[_P, _T]:
+    ...
+
+
+@overload
+def error(exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+    ...
+
+
+def error(
+    *args: Any,
+    **kwargs: Any,
+) -> Any:
+    return _trace(log_level=logging.ERROR)(*args, **kwargs)
 
 
 def stringify(arg: Any) -> str:
@@ -117,21 +172,10 @@ def stringify(arg: Any) -> str:
             return str(arg)
 
 
-# make a structlog processor that uses the TraceContext
 # https://www.structlog.org/en/stable/processors.html
-def traceme_processor(logger: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:
+def indentation_processor(logger: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:
     """A structlog processor that uses the TraceContext."""
-    # print(f"logger: {logger}, method_name: {method_name}, event_dict: {event_dict}")
-    # indent event in each event_dict
-    event = event_dict.get("event", "")
-    direction = event_dict.get("direction", "")
-    args = ", ".join(stringify(arg) for arg in event_dict.get("args", []))
-
     event_dict["indentation"] = _indentation.indentation
-    event_dict["event"] = f"{direction} {event}({args})"
-    # del event_dict["indentation"]
-    if "direction" in event_dict:
-        del event_dict["direction"]
     return event_dict
 
 
@@ -142,6 +186,49 @@ class IndentationFormatter:
     def __call__(self, key: str, value: Any) -> str:
         return f"{self.color}{'│   ' * (value // 4)}│"
 
+
+class DirectionFormatter:
+    def __init__(self, style: str = "") -> None:
+        self.color = style or colorama.Fore.LIGHTBLACK_EX
+
+    def __call__(self, key: str, value: object | None) -> str:
+        match value:
+            case Direction.ENTER:
+                return f"{self.color}▶"
+            case Direction.EXIT:
+                return f"{self.color}◀"
+            case _:
+                return ""
+
+
+class ElapsedFormatter:
+    def __init__(self, key_style: str = "", value_style: str = "") -> None:
+        self.key_style = key_style or colorama.Fore.LIGHTBLACK_EX
+        self.value_style = value_style or colorama.Fore.GREEN
+        self.reset_style = colorama.Style.RESET_ALL
+
+    def __call__(self, key: str, value: object) -> str:
+        match value:
+            case timedelta() if value.total_seconds() < 0.001:
+                return f"{self.key_style}elapsed={self.value_style}{value.total_seconds() * 1_000_000:.0f}{self.reset_style} us"
+            case timedelta() if value.total_seconds() < 1:
+                return (
+                    f"{self.key_style}elapsed={self.value_style}{value.total_seconds() * 1000:.2f}{self.reset_style} ms"
+                )
+            case timedelta():
+                return f"{self.key_style}elapsed={self.value_style}{value}{self.reset_style} secs"
+            case _:
+                return ""
+
+
+indentation_column = structlog.dev.Column(
+    "indentation",
+    formatter=IndentationFormatter(style=colorama.Fore.LIGHTBLACK_EX),
+)
+direction_column = structlog.dev.Column(
+    "direction",
+    formatter=DirectionFormatter(style=colorama.Fore.LIGHTBLACK_EX),
+)
 
 columns = [
     structlog.dev.Column(
@@ -167,18 +254,20 @@ columns = [
             reset_style=colorama.Style.RESET_ALL,
         ),
     ),
-    structlog.dev.Column(
-        "indentation",
-        formatter=IndentationFormatter(style=colorama.Fore.LIGHTBLACK_EX),
-    ),
+    indentation_column,
+    direction_column,
     structlog.dev.Column(
         "event",
         structlog.dev.KeyValueColumnFormatter(
             key_style=None,
             value_style=colorama.Style.BRIGHT + colorama.Fore.MAGENTA,
             reset_style=colorama.Style.RESET_ALL,
-            value_repr=str,
+            value_repr=stringify,
         ),
+    ),
+    structlog.dev.Column(
+        "elapsed",
+        formatter=ElapsedFormatter(key_style=colorama.Fore.LIGHTBLACK_EX),
     ),
     structlog.dev.Column(
         "",
@@ -190,12 +279,29 @@ columns = [
         ),
     ),
 ]
-structlog.configure(
-    processors=[
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.add_log_level,
-        traceme_processor,
-        structlog.dev.ConsoleRenderer(columns=columns),
-        # structlog.processors.JSONRenderer(),
-    ]
-)
+
+
+def configure() -> None:
+    structlog.configure(
+        processors=[
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.add_log_level,
+            indentation_processor,
+            structlog.processors.CallsiteParameterAdder(
+                parameters=[CallsiteParameter.MODULE],
+                additional_ignores=[__name__],
+            ),
+            structlog.dev.ConsoleRenderer(columns=columns),
+        ]
+    )
+
+
+__all__ = [
+    "info",
+    "debug",
+    "error",
+    "configure",
+    "columns",
+    "indentation_column",
+    "direction_column",
+]

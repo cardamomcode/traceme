@@ -1,9 +1,14 @@
 # import pytest
-from traceme import log, trace
+import structlog
+
+import traceme
+
+
+logger = structlog.get_logger()
 
 
 def test_trace_decorator_works():
-    @trace
+    @traceme.info
     def add(a: int, b: int) -> int:
         return a + b
 
@@ -11,7 +16,7 @@ def test_trace_decorator_works():
 
 
 def test_trace_decorator_parametrized_works():
-    @trace(exit=True)
+    @traceme.info(exit=True)
     def add(a: int, b: int) -> int:
         return a + b
 
@@ -19,11 +24,11 @@ def test_trace_decorator_parametrized_works():
 
 
 def test_trace_string():
-    a = log("hello world")
+    a = logger.info("hello world")
     assert a is None
 
 
 def test_trace_with_params():
     a = 10
-    a = log(a)
+    a = logger.info(a)
     assert a is None
