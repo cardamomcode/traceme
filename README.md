@@ -74,6 +74,8 @@ This will output:
 Switching `traceme` to `Environment.PRODUCTION` will remove all the indentation.
 
 ```python
+from traceme import Environment
+
 traceme.configure(Environment.PRODUCTION)
 ```
 
