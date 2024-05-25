@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "traceme"
-version = "0.2.0"
+version = "0.0.0"
 description = "Python debug and tracer library"
 authors = ["Dag Brattli <dag@brattli.net>", "Cristina Ferrer Teixidor <cris.ferrer22@gmail.com>"]
 readme = "README.md"
