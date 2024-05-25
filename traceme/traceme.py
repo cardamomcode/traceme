@@ -66,15 +66,15 @@ class TraceContext:
         _indentation.indentation -= 4
         elapsed = datetime.now() - self.start if self.start else None
 
-        match self.log_exit, excinst:
-            case True, None:
-                logger.log(event=self.name, level=self.log_level, direction=Direction.EXIT, elapsed=elapsed)
-            case True, exn:
-                logger.log(
-                    event=self.name, level=self.log_level, exc_info=exn, direction=Direction.EXIT, elapsed=elapsed
-                )
+        # If an exception was raised and it has not been logged before, log it
+        exc_seen = excinst and hasattr(excinst, "_traceme")
+        match self.log_exit, excinst, exc_seen:
+            case True, exn, False:
+                # Mark the exception as logged so we don't log it again in outer scopes
+                setattr(excinst, "_traceme", True)
+                logger.exception(event=self.name, exc_info=exn, direction=Direction.EXIT, elapsed=elapsed)
             case _:
-                pass
+                logger.log(event=self.name, level=self.log_level, direction=Direction.EXIT, elapsed=elapsed)
 
 
 def _trace(log_level: int = logging.INFO) -> Callable[..., Any]:
@@ -310,7 +310,9 @@ develoment_processors = [
         parameters=[CallsiteParameter.MODULE],
         additional_ignores=[__name__],
     ),
-    structlog.dev.ConsoleRenderer(columns=columns),
+    structlog.dev.ConsoleRenderer(
+        columns=columns, exception_formatter=structlog.dev.RichTracebackFormatter(suppress=["traceme"])
+    ),
 ]
 
 production_processors = [
