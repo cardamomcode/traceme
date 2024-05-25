@@ -68,20 +68,10 @@ This will output:
 ❯ poetry run python tests/test_pythagoras.py
 ```
 
-```toml
-2024-05-25T09:50:03.709926Z [info     ] │ ▶ pythagoras args=(3, 4, <function <lambda> at 0x1073581f0>) kwargs={} module=test_pythagoras
-2024-05-25T09:50:03.737203Z [info     ] │   │ ▶ square args=(3, <function pythagoras.<locals>.<lambda> at 0x10735b490>) kwargs={} module=test_pythagoras
-2024-05-25T09:50:03.737427Z [info     ] │   │   │ ▶ square args=(4, <function pythagoras.<locals>.<lambda>.<locals>.<lambda> at 0x10735b370>) kwargs={} module=test_pythagoras
-2024-05-25T09:50:03.737633Z [debug    ] │   │   │   │ ▶ add args=(9, 16, <function pythagoras.<locals>.<lambda>.<locals>.<lambda>.<locals>.<lambda> at 0x10735b5b0>) kwargs={} module=test_pythagoras
-2024-05-25T09:50:03.737842Z [info     ] │   │   │   │   │ ▶ sqrt args=(25, <function <lambda> at 0x1073581f0>) kwargs={} module=test_pythagoras
-2024-05-25T09:50:03.738029Z [debug    ] │   │   │   │   │   │ The result is module=test_pythagoras result=5
-2024-05-25T09:50:03.738199Z [info     ] │   │   │   │   │ ◀ sqrt elapsed=361 us module=test_pythagoras
-2024-05-25T09:50:03.738391Z [info     ] │   │   │ ◀ square elapsed=968 us module=test_pythagoras
-2024-05-25T09:50:03.738569Z [info     ] │   │ ◀ square elapsed=1.38 ms module=test_pythagoras
-2024-05-25T09:50:03.738739Z [info     ] │ ◀ pythagoras elapsed=28.84 ms module=test_pythagoras
-```
+<img width="977" alt="Screenshot 2024-05-25 at 12 02 27" src="https://github.com/dbrattli/traceme/assets/849479/9a435fe0-fd73-4c62-b55b-e84983402b86">
 
-Switching `traceme` to `PRODUCTION` will remove all the indentation.
+
+Switching `traceme` to `Environment.PRODUCTION` will remove all the indentation.
 
 ```python
 traceme.configure(Environment.PRODUCTION)
