@@ -1,8 +1,8 @@
 import logging
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
-from enum import IntEnum
+from enum import Enum, IntEnum
 from types import TracebackType
 from typing import Any, ParamSpec, TypeVar, overload
 
@@ -37,7 +37,6 @@ class TraceContext:
         *args: Any,
         log_level: int = logging.INFO,
         log_exit: bool = False,
-        timeit: bool = False,
         **kwargs: Any,
     ):
         self.name = name
@@ -109,13 +108,11 @@ def _trace(log_level: int = logging.INFO) -> Callable[..., Any]:
 
 
 @overload
-def info(func: Callable[_P, _T]) -> Callable[_P, _T]:
-    ...
+def info(func: Callable[_P, _T]) -> Callable[_P, _T]: ...
 
 
 @overload
-def info(log_exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
-    ...
+def info(log_exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
 
 
 def info(
@@ -126,13 +123,11 @@ def info(
 
 
 @overload
-def debug(func: Callable[_P, _T]) -> Callable[_P, _T]:
-    ...
+def debug(func: Callable[_P, _T]) -> Callable[_P, _T]: ...
 
 
 @overload
-def debug(log_exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
-    ...
+def debug(log_exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
 
 
 def debug(
@@ -143,13 +138,11 @@ def debug(
 
 
 @overload
-def error(func: Callable[_P, _T]) -> Callable[_P, _T]:
-    ...
+def error(func: Callable[_P, _T]) -> Callable[_P, _T]: ...
 
 
 @overload
-def error(log_exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
-    ...
+def error(log_exit: bool = False) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]: ...
 
 
 def error(
@@ -182,6 +175,17 @@ def stringify(arg: Any) -> str:
 def indentation_processor(logger: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:
     """A structlog processor that uses the TraceContext."""
     event_dict["indentation"] = _indentation.indentation
+    return event_dict
+
+
+def production_processor(logger: WrappedLogger, method_name: str, event_dict: EventDict) -> EventDict:
+    """A structlog processor that uses the TraceContext.
+
+    Removes tracme specific keys from the event_dict.
+    """
+    keys = ["indentation", "direction", "elapsed", "args", "kwargs"]
+    for key in keys:
+        event_dict.pop(key, None)
     return event_dict
 
 
@@ -293,18 +297,37 @@ columns = [
 ]
 
 
-def configure() -> None:
+class Environment(Enum):
+    PRODUCTION = 1
+    DEVELOPMENT = 2
+
+
+develoment_processors = [
+    structlog.processors.TimeStamper(fmt="iso"),
+    structlog.processors.add_log_level,
+    indentation_processor,
+    structlog.processors.CallsiteParameterAdder(
+        parameters=[CallsiteParameter.MODULE],
+        additional_ignores=[__name__],
+    ),
+    structlog.dev.ConsoleRenderer(columns=columns),
+]
+
+production_processors = [
+    structlog.processors.TimeStamper(fmt="iso"),
+    structlog.processors.add_log_level,
+    production_processor,
+    structlog.processors.JSONRenderer(),
+]
+
+
+def configure(environment: Environment = Environment.DEVELOPMENT, processors: Iterable[Any] | None = None) -> None:
     structlog.configure(
-        processors=[
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.add_log_level,
-            indentation_processor,
-            structlog.processors.CallsiteParameterAdder(
-                parameters=[CallsiteParameter.MODULE],
-                additional_ignores=[__name__],
-            ),
-            structlog.dev.ConsoleRenderer(columns=columns),
-        ]
+        processors=processors
+        if processors
+        else develoment_processors
+        if environment == Environment.DEVELOPMENT
+        else production_processors
     )
 
 
@@ -316,4 +339,5 @@ __all__ = [
     "columns",
     "indentation_column",
     "direction_column",
+    "Environment",
 ]

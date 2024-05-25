@@ -66,14 +66,29 @@ This will output:
 
 ```bash
 ❯ poetry run python tests/test_pythagoras.py
-2024-02-10T15:52:19.284431Z [info     ] │ ▶ pythagoras args=(3, 4, <function <lambda> at 0x1040c2840>) kwargs={} module=test_pythagoras
-2024-02-10T15:52:19.313361Z [info     ] │   │ ▶ square args=(3, <function pythagoras.<locals>.<lambda> at 0x1040c2ac0>) kwargs={} module=test_pythagoras
-2024-02-10T15:52:19.313621Z [info     ] │   │   │ ▶ square args=(4, <function pythagoras.<locals>.<lambda>.<locals>.<lambda> at 0x1040c2c00>) kwargs={} module=test_pythagoras
-2024-02-10T15:52:19.314165Z [debug    ] │   │   │   │ ▶ add args=(9, 16, <function pythagoras.<locals>.<lambda>.<locals>.<lambda>.<locals>.<lambda> at 0x1040c2ca0>) kwargs={} module=test_pythagoras
-2024-02-10T15:52:19.314407Z [info     ] │   │   │   │   │ ▶ sqrt args=(25, <function <lambda> at 0x1040c2840>) kwargs={} module=test_pythagoras
-2024-02-10T15:52:19.314616Z [debug    ] │   │   │   │   │   │ The result is module=test_pythagoras result=5
-2024-02-10T15:52:19.314806Z [info     ] │   │   │   │   │ ◀ sqrt elapsed=399 us module=test_pythagoras
-2024-02-10T15:52:19.315301Z [info     ] │   │   │ ◀ square elapsed=1.68 ms module=test_pythagoras
-2024-02-10T15:52:19.315493Z [info     ] │   │ ◀ square elapsed=2.15 ms module=test_pythagoras
-2024-02-10T15:52:19.315676Z [info     ] │ ◀ pythagoras elapsed=31.27 ms module=test_pythagoras
+2024-05-25T09:50:03.709926Z [info     ] │ ▶ pythagoras args=(3, 4, <function <lambda> at 0x1073581f0>) kwargs={} module=test_pythagoras
+2024-05-25T09:50:03.737203Z [info     ] │   │ ▶ square args=(3, <function pythagoras.<locals>.<lambda> at 0x10735b490>) kwargs={} module=test_pythagoras
+2024-05-25T09:50:03.737427Z [info     ] │   │   │ ▶ square args=(4, <function pythagoras.<locals>.<lambda>.<locals>.<lambda> at 0x10735b370>) kwargs={} module=test_pythagoras
+2024-05-25T09:50:03.737633Z [debug    ] │   │   │   │ ▶ add args=(9, 16, <function pythagoras.<locals>.<lambda>.<locals>.<lambda>.<locals>.<lambda> at 0x10735b5b0>) kwargs={} module=test_pythagoras
+2024-05-25T09:50:03.737842Z [info     ] │   │   │   │   │ ▶ sqrt args=(25, <function <lambda> at 0x1073581f0>) kwargs={} module=test_pythagoras
+2024-05-25T09:50:03.738029Z [debug    ] │   │   │   │   │   │ The result is module=test_pythagoras result=5
+2024-05-25T09:50:03.738199Z [info     ] │   │   │   │   │ ◀ sqrt elapsed=361 us module=test_pythagoras
+2024-05-25T09:50:03.738391Z [info     ] │   │   │ ◀ square elapsed=968 us module=test_pythagoras
+2024-05-25T09:50:03.738569Z [info     ] │   │ ◀ square elapsed=1.38 ms module=test_pythagoras
+2024-05-25T09:50:03.738739Z [info     ] │ ◀ pythagoras elapsed=28.84 ms module=test_pythagoras
+```
+
+Switching `traceme` to `PRODUCTION` will remove all the indentation.
+
+```text
+{"event": "pythagoras", "timestamp": "2024-05-25T09:49:09.802510Z", "level": "info"}
+{"event": "square", "timestamp": "2024-05-25T09:49:09.802929Z", "level": "info"}
+{"event": "square", "timestamp": "2024-05-25T09:49:09.802991Z", "level": "info"}
+{"event": "add", "timestamp": "2024-05-25T09:49:09.803050Z", "level": "debug"}
+{"event": "sqrt", "timestamp": "2024-05-25T09:49:09.803101Z", "level": "info"}
+{"result": 5, "event": "The result is", "timestamp": "2024-05-25T09:49:09.803147Z", "level": "debug"}
+{"event": "sqrt", "timestamp": "2024-05-25T09:49:09.803200Z", "level": "info"}
+{"event": "square", "timestamp": "2024-05-25T09:49:09.803248Z", "level": "info"}
+{"event": "square", "timestamp": "2024-05-25T09:49:09.803291Z", "level": "info"}
+{"event": "pythagoras", "timestamp": "2024-05-25T09:49:09.803335Z", "level": "info"}
 ```

@@ -6,6 +6,7 @@ from collections.abc import Callable
 import structlog
 
 import traceme
+from traceme import Environment
 
 
 logger = structlog.get_logger(__name__)
@@ -46,5 +47,5 @@ def pythagoras(a: int, b: int, cont: Callable[[int], None]) -> None:
 
 
 if __name__ == "__main__":
-    traceme.configure()
+    traceme.configure(Environment.DEVELOPMENT)
     pythagoras(3, 4, lambda result: logger.debug("The result is", result=result))
