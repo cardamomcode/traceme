@@ -64,7 +64,7 @@ if __name__ == "__main__":
 
 This will output:
 
-```bash
+```log
 ❯ poetry run python tests/test_pythagoras.py
 2024-05-25T09:50:03.709926Z [info     ] │ ▶ pythagoras args=(3, 4, <function <lambda> at 0x1073581f0>) kwargs={} module=test_pythagoras
 2024-05-25T09:50:03.737203Z [info     ] │   │ ▶ square args=(3, <function pythagoras.<locals>.<lambda> at 0x10735b490>) kwargs={} module=test_pythagoras
@@ -80,7 +80,7 @@ This will output:
 
 Switching `traceme` to `PRODUCTION` will remove all the indentation.
 
-```text
+```json
 {"event": "pythagoras", "timestamp": "2024-05-25T09:49:09.802510Z", "level": "info"}
 {"event": "square", "timestamp": "2024-05-25T09:49:09.802929Z", "level": "info"}
 {"event": "square", "timestamp": "2024-05-25T09:49:09.802991Z", "level": "info"}
