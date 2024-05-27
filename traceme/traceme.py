@@ -85,7 +85,7 @@ class TraceContext:
                     level=self.log_level,
                     direction=Direction.EXIT,
                     elapsed=self.elapsed,
-                    **({"result": self.result} if self.result is not None else {}),
+                    **({"result": stringify(self.result)} if self.result is not None else {}),
                 )
 
 
