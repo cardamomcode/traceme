@@ -48,6 +48,8 @@ class TraceContext:
         self.start: datetime | None = None
         self.log_level = log_level
 
+        self.result: Any | None = None
+
     def __enter__(self) -> TraceContext:
         """Log the arguments and indentation."""
         self.start = datetime.now()
@@ -66,19 +68,25 @@ class TraceContext:
         self, exctype: type[BaseException] | None, excinst: BaseException | None, exctb: TracebackType | None
     ) -> None:
         """Exit and reset indentation."""
+        self.elapsed = datetime.now() - self.start if self.start else None
+
         _indentation.indentation -= 4
 
         # If an exception was raised and it has not been logged before, log it
         exc_seen = excinst and hasattr(excinst, "_traceme")
         match self.log_exit, excinst, exc_seen:
             case True, exn, False:
-                self.elapsed = datetime.now() - self.start if self.start else None
-
                 # Mark the exception as logged so we don't log it again in outer scopes
                 setattr(excinst, "_traceme", True)
                 logger.exception(event=self.name, exc_info=exn, direction=Direction.EXIT, elapsed=self.elapsed)
             case _:
-                pass
+                logger.log(
+                    event=self.name,
+                    level=self.log_level,
+                    direction=Direction.EXIT,
+                    elapsed=self.elapsed,
+                    **({"result": self.result} if self.result is not None else {}),
+                )
 
 
 def _trace(log_level: int = logging.INFO) -> Callable[..., Any]:
@@ -99,11 +107,7 @@ def _trace(log_level: int = logging.INFO) -> Callable[..., Any]:
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 with TraceContext(name, *args, log_exit=log_exit, log_level=log_level, **kwargs) as ctx:
                     ret = func(*args, **kwargs)
-                    elapsed = datetime.now() - ctx.start if ctx.start else None
-                    logger.log(
-                        event=name, level=log_level, direction=Direction.EXIT, result=stringify(ret), elapsed=elapsed
-                    )
-
+                    ctx.result = ret
                     return ret
 
             return wrapper
