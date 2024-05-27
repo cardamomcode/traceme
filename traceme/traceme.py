@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import threading
 from collections.abc import Callable, Iterable
@@ -46,7 +48,7 @@ class TraceContext:
         self.start: datetime | None = None
         self.log_level = log_level
 
-    def __enter__(self) -> None:
+    def __enter__(self) -> TraceContext:
         """Log the arguments and indentation."""
         self.start = datetime.now()
         logger.log(
@@ -58,23 +60,25 @@ class TraceContext:
             elapsed=None,
         )
         _indentation.indentation += 4
+        return self
 
     def __exit__(
         self, exctype: type[BaseException] | None, excinst: BaseException | None, exctb: TracebackType | None
     ) -> None:
         """Exit and reset indentation."""
         _indentation.indentation -= 4
-        elapsed = datetime.now() - self.start if self.start else None
 
         # If an exception was raised and it has not been logged before, log it
         exc_seen = excinst and hasattr(excinst, "_traceme")
         match self.log_exit, excinst, exc_seen:
             case True, exn, False:
+                self.elapsed = datetime.now() - self.start if self.start else None
+
                 # Mark the exception as logged so we don't log it again in outer scopes
                 setattr(excinst, "_traceme", True)
-                logger.exception(event=self.name, exc_info=exn, direction=Direction.EXIT, elapsed=elapsed)
+                logger.exception(event=self.name, exc_info=exn, direction=Direction.EXIT, elapsed=self.elapsed)
             case _:
-                logger.log(event=self.name, level=self.log_level, direction=Direction.EXIT, elapsed=elapsed)
+                pass
 
 
 def _trace(log_level: int = logging.INFO) -> Callable[..., Any]:
@@ -93,8 +97,14 @@ def _trace(log_level: int = logging.INFO) -> Callable[..., Any]:
                 name = func.__name__
 
             def wrapper(*args: Any, **kwargs: Any) -> Any:
-                with TraceContext(name, *args, log_exit=log_exit, log_level=log_level, **kwargs):
-                    return func(*args, **kwargs)
+                with TraceContext(name, *args, log_exit=log_exit, log_level=log_level, **kwargs) as ctx:
+                    ret = func(*args, **kwargs)
+                    elapsed = datetime.now() - ctx.start if ctx.start else None
+                    logger.log(
+                        event=name, level=log_level, direction=Direction.EXIT, result=stringify(ret), elapsed=elapsed
+                    )
+
+                    return ret
 
             return wrapper
 
