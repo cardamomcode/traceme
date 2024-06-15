@@ -32,3 +32,18 @@ def test_trace_with_params():
     a = 10
     a = logger.info(a)
     assert a is None
+
+
+def test_recursive():
+    @traceme.info(log_exit=True)
+    def factorial(n: int) -> int:
+        if n == 0:
+            return 1
+        return n * factorial(n - 1)
+
+    assert factorial(5) == 120
+
+
+if __name__ == "__main__":
+    traceme.configure(traceme.Environment.DEVELOPMENT)
+    test_recursive()
